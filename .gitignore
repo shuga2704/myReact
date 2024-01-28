@@ -1,0 +1,16 @@
+node_modules/
+.idea/
+tsconfig.tsbuildinfo
+tsconfig.es.tsbuildinfo
+cypress/snapshots/**/__diff_output__
+cypress/snapshots/**/All\ Specs
+cypress/screenshots
+cypress/videos
+cypress/results
+.nyc_output
+coverage
+coverage-ts
+perftest
+.perftool
+s3_build
+temp
