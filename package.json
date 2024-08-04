@@ -6,5 +6,8 @@
   "license": "MIT",
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "prettier": "3.3.3"
+  }
 }

@@ -1,19 +1,15 @@
-import myReact from 'myReact'
+import myReact from 'myReact';
 /** @jsx myReact.createElement */
 
 function App() {
-    const [state, setState] = myReact.useState(1);
+    const [count, setCount] = myReact.useState(0);
 
     return (
-        <div>
-            <h1>
-                Count: {state}
-            </h1>
-
-            <button onClick={() => setState(c => c + 1)}> increment< /button>
+        <div className="app">
+            <button onClick={() => setCount(count + 1)}>increment</button>
+            Counter: {count}
         </div>
-    )
+    );
 }
 
-export default App
-
+export default App;
