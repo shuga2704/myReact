@@ -1,10 +1,11 @@
 import { createElement, createTextElement } from './createUtils';
 import { createDom, updateDom } from './domUtils';
+import { createRoot } from './createRoot';
 
-let currentRoot = null;
-let wipRoot = null;
-let nextUnitOfWork = null;
-let deletions = null;
+let currentRoot: any = null;
+let wipRoot: any = null;
+let nextUnitOfWork: any = null;
+let deletions: any = null;
 
 function render(element, container) {
     wipRoot = {
@@ -35,8 +36,8 @@ function workLoop(deadline) {
 }
 window.requestIdleCallback(workLoop);
 
-let wipFiber = null;
-let hookIndex = null;
+let wipFiber: any = null;
+let hookIndex: any = null;
 
 function updateFunctionComponent(fiber) {
     wipFiber = fiber;
@@ -124,7 +125,7 @@ function flatten(value) {
         if (Array.isArray(item)) {
             copy.unshift(...item);
         } else {
-            res.push(item);
+            res.push(item as never);
         }
     }
 
@@ -137,12 +138,12 @@ function reconcileChildren(wipFiber) {
 
     let index = 0;
     let oldFiber = wipFiber.alternate && wipFiber.alternate.child;
-    let prevSibling = null;
+    let prevSibling: any = null;
 
     while (index < elements.length || oldFiber) {
-        const element = elements[index];
+        const element: any = elements[index];
 
-        let newFiber = null;
+        let newFiber: any = null;
 
         const sameType = oldFiber && element && element.type == oldFiber.type;
 
@@ -232,4 +233,4 @@ function commitDeletion(fiber, domParent) {
     }
 }
 
-export default { createTextElement, createElement, render, useState };
+export default { createRoot, createTextElement, createElement, render, useState };

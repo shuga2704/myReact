@@ -1,47 +1,39 @@
-const path = require("path")
-const HtmlWebpackPlugin = require("html-webpack-plugin");
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const path = require('path');
 
 module.exports = {
-    entry: "./src/index",
+    entry: './src/index.tsx',
+    mode: 'development',
     output: {
-        path: path.resolve(__dirname, "dist"),
-        filename: "index.js"
+        filename: 'bundle.[fullhash].js',
+        path: path.resolve(__dirname, 'dist'),
     },
+    plugins: [
+        new HtmlWebpackPlugin({
+            template: './src/index.html',
+        }),
+    ],
     resolve: {
-        extensions: ['.js', '.jsx', '.ts', '.tsx'],
+        modules: [__dirname, 'src', 'node_modules'],
+        extensions: ['*', '.js', '.jsx', '.tsx', '.ts'],
     },
     module: {
         rules: [
             {
-                test: /\.jsx?$/,
+                test: /\.(js|ts)x?$/,
                 exclude: /node_modules/,
-                use: {
-                    loader: "babel-loader",
-                }
-            }
-        ]
+                use: ['babel-loader'],
+            },
+            {
+                test: /\.css$/,
+                exclude: /node_modules/,
+                use: ['style-loader', 'css-loader'],
+            },
+            {
+                test: /\.(png|svg|jpg|gif)$/,
+                exclude: /node_modules/,
+                use: ['file-loader'],
+            },
+        ],
     },
-    plugins: [
-        new HtmlWebpackPlugin({
-            template: path.resolve(__dirname, "public/index.html"),
-            inject: true
-        }),
-    ],
-    devServer: {
-        compress: false,
-        hot: true,
-        port: 5555,
-        historyApiFallback: true,
-        open: true,
-    }
-}
-
-
-// contentBase: path.join(__dirname, "dist"),
-//     compress: true,
-//     port: 4200,
-//     watchContentBase: true,
-//     progress: true,
-//     hot: true,
-//     open: true,
-//     historyApiFallback: true,
+};
