@@ -8,11 +8,15 @@ export type ReactElement = {
 
 export type ReactText = string | number;
 
-export type FiberRoot = Fiber; // уникальный тип для файбер рут ноды
+export type FiberRoot = {
+    current: Fiber;
+    containerInfo: any;
+    next: any;
+    finishedWork: any;
+}; // уникальный тип для файбер рут ноды
 
 export type RootType = {
     render(children: ReactNodeList): void;
-    unmount(): void;
     _internalRoot: FiberRoot | null;
 };
 
@@ -25,21 +29,8 @@ export type ReactNode = ReactElement | ReactText | ReactFragment;
 export type ReactNodeList = ReactEmpty | ReactNode;
 
 export type Fiber = {
-    // These first fields are conceptually members of an Instance. This used to
-    // be split into a separate type and intersected with the other Fiber fields,
-    // but until Flow fixes its intersection bugs, we've merged them into a
-    // single type.
-
-    // An Instance is shared between all versions of a component. We can easily
-    // break this out into a separate object to avoid copying so much to the
-    // alternate versions of the tree. We put this on a single object for now to
-    // minimize the number of objects created during the initial render.
-
     // Tag identifying the type of fiber.
     tag: WorkTag;
-
-    // Unique identifier of this child.
-    key: null | string;
 
     // The value of element.type which is used to preserve the identity during
     // reconciliation of this child.
@@ -51,63 +42,64 @@ export type Fiber = {
     // The local state associated with this fiber.
     stateNode: any;
 
-    // Conceptual aliases
-    // parent : Instance -> return The parent happens to be the same as the
-    // return fiber since we've merged the fiber and instance.
-
-    // Remaining fields belong to Fiber
-
-    // The Fiber to return to after finishing processing this one.
-    // This is effectively the parent, but there can be multiple parents (two)
-    // so this is only the parent of the thing we're currently processing.
-    // It is conceptually the same as the return address of a stack frame.
     return: Fiber | null;
 
     // Singly Linked List Tree Structure.
     child: Fiber | null;
     sibling: Fiber | null;
-    index: number;
 
-    // The ref last used to attach this node.
-    // I'll avoid adding an owner field for prod and model that as functions.
-    ref: null | RefObject;
+    props: any;
 
-    refCleanup: null | (() => void);
-
-    // Input is the data coming into process this fiber. Arguments. Props.
-    pendingProps: any; // This type will be more specific once we overload the tag.
-    memoizedProps: any; // The props used to create the output.
+    memoizedState: any;
 
     // A queue of state updates and callbacks.
     updateQueue: any;
 
-    // The state used to create the output
-    memoizedState: any;
-
-    // Dependencies (contexts, events) for this fiber, if it has any
-    // dependencies: Dependencies | null;
-
-    // Bitfield that describes properties about the fiber and its subtree. E.g.
-    // the ConcurrentMode flag indicates whether the subtree should be async-by-
-    // default. When a fiber is created, it inherits the mode of its
-    // parent. Additional flags can be set at creation time, but after that the
-    // value should remain unchanged throughout the fiber's lifetime, particularly
-    // before its child fibers are created.
-    mode: TypeOfMode;
-
     // Effect
     flags: Flags;
-    subtreeFlags: Flags;
     deletions: Array<Fiber> | null;
 
-    // lanes: Lanes,
-    // childLanes: Lanes,
-
-    // This is a pooled version of a Fiber. Every fiber that gets updated will
-    // eventually have a pair. There are cases when we can clean up pairs to save
-    // memory if we need to.
     alternate: Fiber | null;
 };
+
+export type Lanes = number;
+export type Lane = number;
+
+export const TotalLanes = 31;
+
+export const NoLanes: Lanes = /*                        */ 0b0000000000000000000000000000000;
+export const NoLane: Lane = /*                          */ 0b0000000000000000000000000000000;
+
+export const SyncHydrationLane: Lane = /*               */ 0b0000000000000000000000000000001;
+export const SyncLane: Lane = /*                        */ 0b0000000000000000000000000000010;
+export const SyncLaneIndex: number = 1;
+
+export const InputContinuousHydrationLane: Lane = /*    */ 0b0000000000000000000000000000100;
+export const InputContinuousLane: Lane = /*             */ 0b0000000000000000000000000001000;
+
+export const DefaultHydrationLane: Lane = /*            */ 0b0000000000000000000000000010000;
+export const DefaultLane: Lane = /*                     */ 0b0000000000000000000000000100000;
+
+export const SyncUpdateLanes: Lane =
+    SyncLane | InputContinuousLane | DefaultLane;
+
+const TransitionHydrationLane: Lane = /*                */ 0b0000000000000000000000001000000;
+const TransitionLanes: Lanes = /*                       */ 0b0000000001111111111111110000000;
+const TransitionLane1: Lane = /*                        */ 0b0000000000000000000000010000000;
+const TransitionLane2: Lane = /*                        */ 0b0000000000000000000000100000000;
+const TransitionLane3: Lane = /*                        */ 0b0000000000000000000001000000000;
+const TransitionLane4: Lane = /*                        */ 0b0000000000000000000010000000000;
+const TransitionLane5: Lane = /*                        */ 0b0000000000000000000100000000000;
+const TransitionLane6: Lane = /*                        */ 0b0000000000000000001000000000000;
+const TransitionLane7: Lane = /*                        */ 0b0000000000000000010000000000000;
+const TransitionLane8: Lane = /*                        */ 0b0000000000000000100000000000000;
+const TransitionLane9: Lane = /*                        */ 0b0000000000000001000000000000000;
+const TransitionLane10: Lane = /*                       */ 0b0000000000000010000000000000000;
+const TransitionLane11: Lane = /*                       */ 0b0000000000000100000000000000000;
+const TransitionLane12: Lane = /*                       */ 0b0000000000001000000000000000000;
+const TransitionLane13: Lane = /*                       */ 0b0000000000010000000000000000000;
+const TransitionLane14: Lane = /*                       */ 0b0000000000100000000000000000000;
+const TransitionLane15: Lane = /*                       */ 0b0000000001000000000000000000000;
 
 export type WorkTag =
     | 0
@@ -140,9 +132,9 @@ export type WorkTag =
     | 27
     | 28
     | 29;
-
 export const FunctionComponent = 0;
 export const ClassComponent = 1;
+export const IndeterminateComponent = 2;
 export const HostRoot = 3; // Root of a host tree. Could be nested inside another node.
 export const HostPortal = 4; // A subtree. Could be an entry point to a different renderer.
 export const HostComponent = 5;
@@ -187,4 +179,82 @@ export const NoStrictPassiveEffectsMode = /*     */ 0b1000000;
 
 export type Flags = number;
 
+// Don't change these values. They're used by React Dev Tools.
 export const NoFlags = /*                      */ 0b0000000000000000000000000000;
+export const PerformedWork = /*                */ 0b0000000000000000000000000001;
+export const Placement = /*                    */ 0b0000000000000000000000000010;
+export const DidCapture = /*                   */ 0b0000000000000000000010000000;
+export const Hydrating = /*                    */ 0b0000000000000001000000000000;
+
+// You can change the rest (and add more).
+export const Update = /*                       */ 0b0000000000000000000000000100;
+export const Cloned = /*                       */ 0b0000000000000000000000001000;
+
+export const ChildDeletion = /*                */ 0b0000000000000000000000010000;
+export const ContentReset = /*                 */ 0b0000000000000000000000100000;
+export const Callback = /*                     */ 0b0000000000000000000001000000;
+/* Used by DidCapture:                            0b0000000000000000000010000000; */
+
+export const ForceClientRender = /*            */ 0b0000000000000000000100000000;
+export const Ref = /*                          */ 0b0000000000000000001000000000;
+export const Snapshot = /*                     */ 0b0000000000000000010000000000;
+export const Passive = /*                      */ 0b0000000000000000100000000000;
+
+export type Update<State> = {
+    lane: Lane;
+
+    tag: 0 | 1 | 2 | 3;
+    payload: any;
+    callback: (() => any) | null;
+
+    next: Update<State> | null;
+};
+
+export const UpdateState = 0;
+export const ReplaceState = 1;
+export const ForceUpdate = 2;
+export const CaptureUpdate = 3;
+
+export type SharedQueue<State> = {
+    pending: Update<State> | null;
+    lanes: Lanes;
+    hiddenCallbacks: Array<() => any> | null;
+};
+
+export type ConcurrentUpdate = {
+    next: ConcurrentUpdate;
+    lane: Lane;
+};
+
+export type ConcurrentQueue = {
+    pending: ConcurrentUpdate | null;
+};
+
+export type RootExitStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+// Static tags describe aspects of a fiber that are not specific to a render,
+// e.g. a fiber uses a passive effect (even if there are no updates on this particular render).
+// This enables us to defer more work in the unmount case,
+// since we can defer traversing the tree during layout to look for Passive effects,
+// and instead rely on the static flag as a signal that there may be cleanup work.
+export const RefStatic = /*                    */ 0b0000001000000000000000000000;
+export const LayoutStatic = /*                 */ 0b0000010000000000000000000000;
+export const PassiveStatic = /*                */ 0b0000100000000000000000000000;
+export const MaySuspendCommit = /*             */ 0b0001000000000000000000000000;
+
+export const StaticMask =
+    LayoutStatic | PassiveStatic | RefStatic | MaySuspendCommit;
+
+export type RootState = {
+    element: any;
+    isDehydrated: boolean;
+    cache: Cache;
+};
+
+export const REACT_ELEMENT_TYPE: symbol = Symbol.for('react.element');
+export const REACT_FRAGMENT_TYPE: symbol = Symbol.for('react.fragment');
+
+export type Hook = {
+    state: any;
+    queue: [];
+};

@@ -1,9 +1,21 @@
 {
   "name": "myReact",
   "version": "1.0.0",
-  "main": "src/index.js",
-  "license": "MIT",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "build": "rollup --config"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "rollup": "^4.20.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rollup-plugin-dts": "^6.1.1",
+    "typescript": "^5.5.4"
   }
 }

@@ -1,6 +1,7 @@
 import { FiberRoot, ReactNodeList } from './types';
+import { updateContainer } from './updateContainer';
 
-class ReactDOMRoot {
+export class ReactDOMRoot {
     _internalRoot: FiberRoot;
 
     constructor(internalRoot: FiberRoot) {
@@ -12,4 +13,6 @@ class ReactDOMRoot {
 
         updateContainer(children, root, null, null);
     }
+
+    unmount() {}
 }

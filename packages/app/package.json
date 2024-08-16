@@ -1,5 +1,5 @@
 {
-  "name": "app2",
+  "name": "app",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -10,6 +10,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "dependencies":  {
+    "myReact": "1.0.0"
+  },
   "devDependencies": {
     "@babel/core": "7.25.2",
     "@babel/plugin-transform-react-jsx": "^7.25.2",
