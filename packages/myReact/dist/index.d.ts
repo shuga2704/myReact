@@ -8,7 +8,7 @@ export declare function createFiberRoot(containerInfo: Element | Document | Docu
 declare function createRoot(container: Element | Document | DocumentFragment): RootType;
 export declare function createWorkInProgress(current: Fiber): Fiber;
 export declare function completeWork(workInProgress: Fiber): null;
-export declare function reconcileSingleElement(returnFiber: Fiber, currentFirstChild: Fiber | null, element: any): Fiber;
+export declare function reconcileSingleElement(returnFiber: Fiber, element: any): Fiber;
 declare function useState(initialValue: string | number): any[];
 declare const _default: {
     createRoot: typeof createRoot;
