@@ -254,7 +254,26 @@ export type RootState = {
 export const REACT_ELEMENT_TYPE: symbol = Symbol.for('react.element');
 export const REACT_FRAGMENT_TYPE: symbol = Symbol.for('react.fragment');
 
-export type Hook = {
+export type UseStateHook = {
     state: any;
     queue: [];
 };
+
+export type Effect = {
+    tag: HookFlags;
+    create: () => (() => void) | void;
+    destroy: () => (() => void) | void;
+    deps: Array<any>;
+};
+
+export type HookFlags = number;
+
+export const HookNoFlags = /*   */ 0b0000;
+
+// Represents whether effect should fire.
+export const HookHasEffect = /* */ 0b0001;
+
+// Represents the phase in which the effect (not the clean-up) fires.
+export const HookInsertion = /* */ 0b0010;
+export const HookLayout = /*    */ 0b0100;
+export const HookPassive = /*   */ 0b1000;

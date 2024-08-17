@@ -1,4 +1,4 @@
-import myReact from 'myReact';
+import myReact, { useState, useEffect } from 'myReact';
 /** @jsx myReact.createElement */
 
 // import App from './App';
@@ -8,17 +8,25 @@ const container = document.getElementById('root');
 const root = myReact.createRoot(container as any);
 
 const ChildComponent = ({ value }: any) => {
+    useEffect(() => {
+        console.log('useeffect child');
+    }, []);
+
     return <h2>Child {value}</h2>;
 };
 
-const Component = () => {
-    const [value, setValue] = myReact.useState(5);
-    const [value2, setValue2] = myReact.useState(5);
+const App = () => {
+    const [value, setValue] = useState(5);
+    const [value2, setValue2] = useState(5);
 
     const handleClick = () => {
         setValue((prev: any) => prev + 1);
         // setValue2(value2 - 1);
     };
+
+    useEffect(() => {
+        console.log('useeffect root');
+    }, [value]);
 
     return (
         <div>
@@ -29,7 +37,4 @@ const Component = () => {
     );
 };
 
-root.render((<Component />) as any);
-
-// const rootElement = document.getElementById('root');
-// myReact.render(<App />, rootElement);
+root.render((<App />) as any);

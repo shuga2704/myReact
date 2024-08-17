@@ -14,6 +14,10 @@ import {
     RootType,
     WorkTag,
     Update,
+    UseStateHook,
+    Effect,
+    HookHasEffect,
+    HookNoFlags,
 } from './types';
 
 let fiberRootNode: FiberRoot | null = null;
@@ -49,7 +53,7 @@ class ReactDOMRoot {
 }
 
 function scheduleUpdateOnFiber() {
-    performConcurrentWorkOnRoot();
+    queueMicrotask(performConcurrentWorkOnRoot);
 }
 
 function performConcurrentWorkOnRoot() {
@@ -62,9 +66,13 @@ function performConcurrentWorkOnRoot() {
 
     commitRoot();
 
+    flushPassiveEffects();
+
     fiberRootNode!.current = finishedWork;
     fiberRootNode!.finishedWork = null;
     workInProgress = null;
+
+    console.log('fiberRootNode', fiberRootNode);
 }
 
 function renderRootSync() {
@@ -499,13 +507,44 @@ function commitWork(fiber: Fiber | null | any) {
     commitWork(fiber.sibling);
 }
 
+function flushPassiveEffects() {
+    let fiber = fiberRootNode!.finishedWork;
+    let cameFromReturn = false;
+
+    while (fiber) {
+        if (fiber.child && !cameFromReturn) {
+            fiber = fiber.child;
+            continue;
+        }
+
+        if (fiber.memoizedState && fiber.memoizedState.length > 0) {
+            // Обрабатываем тут только хуки эффектов
+            fiber.memoizedState.forEach((hook: any) => {
+                if (!hook.tag || hook.tag !== HookHasEffect) return;
+
+                hook.create();
+            })!;
+        }
+
+        if (fiber.sibling) {
+            fiber = fiber.sibling;
+            cameFromReturn = false;
+            continue;
+        }
+
+        cameFromReturn = true;
+        fiber = fiber.return;
+    }
+}
+
 function useState(initialValue: string | number) {
     if (workInProgress.memoizedState === null) {
         workInProgress.memoizedState = [];
     }
 
     if (workInProgress.memoizedState[workInProgressHookIndex]) {
-        const hook = workInProgress.memoizedState[workInProgressHookIndex];
+        const hook: UseStateHook =
+            workInProgress.memoizedState[workInProgressHookIndex];
 
         hook.queue.forEach((action: any) => {
             if (typeof action === 'function') {
@@ -536,4 +575,47 @@ function useState(initialValue: string | number) {
     return [currentHook.state, dispatcher];
 }
 
-export default { createRoot, createTextElement, createElement, useState };
+function useEffect(create: () => (() => void) | void, deps: Array<any>) {
+    if (workInProgress.memoizedState === null) {
+        workInProgress.memoizedState = [];
+    }
+
+    const prevEffect: Effect | null =
+        workInProgress.memoizedState[workInProgressHookIndex] || null;
+
+    // Проверка на initial render или rerender
+    if (prevEffect !== null) {
+        let tag = HookNoFlags;
+
+        const prevDeps = prevEffect.deps;
+
+        for (let i = 0; i < prevDeps.length; i++) {
+            if (prevDeps[i] !== deps[i]) {
+                tag = HookHasEffect;
+                break;
+            }
+        }
+
+        workInProgress.memoizedState[workInProgressHookIndex] = {
+            tag,
+            create,
+            destroy: null,
+            deps,
+        };
+    } else {
+        workInProgress.memoizedState[workInProgressHookIndex] = {
+            tag: HookHasEffect,
+            create,
+            destroy: null,
+            deps,
+        };
+    }
+}
+
+export default {
+    createRoot,
+    createTextElement,
+    createElement,
+};
+
+export { useEffect, useState };

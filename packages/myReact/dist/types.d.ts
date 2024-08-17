@@ -140,7 +140,19 @@ export type RootState = {
 };
 export declare const REACT_ELEMENT_TYPE: symbol;
 export declare const REACT_FRAGMENT_TYPE: symbol;
-export type Hook = {
+export type UseStateHook = {
     state: any;
     queue: [];
 };
+export type Effect = {
+    tag: HookFlags;
+    create: () => (() => void) | void;
+    destroy: () => (() => void) | void;
+    deps: Array<any>;
+};
+export type HookFlags = number;
+export declare const HookNoFlags = 0;
+export declare const HookHasEffect = 1;
+export declare const HookInsertion = 2;
+export declare const HookLayout = 4;
+export declare const HookPassive = 8;

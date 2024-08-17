@@ -29,6 +29,9 @@ const HostText = 6;
 const Placement = /*                    */ 0b0000000000000000000000000010;
 // You can change the rest (and add more).
 const Update = /*                       */ 0b0000000000000000000000000100;
+const HookNoFlags = /*   */ 0b0000;
+// Represents whether effect should fire.
+const HookHasEffect = /* */ 0b0001;
 
 let fiberRootNode = null;
 let workInProgress = null;
@@ -52,7 +55,7 @@ class ReactDOMRoot {
     }
 }
 function scheduleUpdateOnFiber() {
-    performConcurrentWorkOnRoot();
+    queueMicrotask(performConcurrentWorkOnRoot);
 }
 function performConcurrentWorkOnRoot() {
     renderRootSync();
@@ -60,19 +63,22 @@ function performConcurrentWorkOnRoot() {
     fiberRootNode.finishedWork = finishedWork;
     finishedWork.return = fiberRootNode;
     commitRoot();
+    flushPassiveEffects();
     fiberRootNode.current = finishedWork;
     fiberRootNode.finishedWork = null;
     workInProgress = null;
+    console.log('fiberRootNode', fiberRootNode);
 }
 function renderRootSync() {
     prepareFreshStack();
-    do {
-        try {
-            workLoopSync();
-            break;
-        }
-        catch (thrownValue) { }
-    } while (true);
+    workLoopSync();
+    // do {
+    //     try {
+    //         workLoopSync();
+    //
+    //         break;
+    //     } catch (thrownValue) {}
+    // } while (true);
 }
 function prepareFreshStack() {
     workInProgress = createWorkInProgress(fiberRootNode.current);
@@ -378,6 +384,31 @@ function commitWork(fiber) {
     commitWork(fiber.child);
     commitWork(fiber.sibling);
 }
+function flushPassiveEffects() {
+    let fiber = fiberRootNode.finishedWork;
+    let cameFromReturn = false;
+    while (fiber) {
+        if (fiber.child && !cameFromReturn) {
+            fiber = fiber.child;
+            continue;
+        }
+        if (fiber.memoizedState && fiber.memoizedState.length > 0) {
+            // Обрабатываем тут только хуки эффектов
+            fiber.memoizedState.forEach((hook) => {
+                if (!hook.tag || hook.tag !== HookHasEffect)
+                    return;
+                hook.create();
+            });
+        }
+        if (fiber.sibling) {
+            fiber = fiber.sibling;
+            cameFromReturn = false;
+            continue;
+        }
+        cameFromReturn = true;
+        fiber = fiber.return;
+    }
+}
 function useState(initialValue) {
     if (workInProgress.memoizedState === null) {
         workInProgress.memoizedState = [];
@@ -408,11 +439,48 @@ function useState(initialValue) {
     workInProgressHookIndex++;
     return [currentHook.state, dispatcher];
 }
-var index = { createRoot, createTextElement, createElement, useState };
+function useEffect(create, deps) {
+    if (workInProgress.memoizedState === null) {
+        workInProgress.memoizedState = [];
+    }
+    const prevEffect = workInProgress.memoizedState[workInProgressHookIndex] || null;
+    // Проверка на initial render или rerender
+    if (prevEffect !== null) {
+        let tag = HookNoFlags;
+        const prevDeps = prevEffect.deps;
+        for (let i = 0; i < prevDeps.length; i++) {
+            if (prevDeps[i] !== deps[i]) {
+                tag = HookHasEffect;
+                break;
+            }
+        }
+        workInProgress.memoizedState[workInProgressHookIndex] = {
+            tag,
+            create,
+            destroy: null,
+            deps,
+        };
+    }
+    else {
+        workInProgress.memoizedState[workInProgressHookIndex] = {
+            tag: HookHasEffect,
+            create,
+            destroy: null,
+            deps,
+        };
+    }
+}
+var index = {
+    createRoot,
+    createTextElement,
+    createElement,
+};
 
 exports.completeWork = completeWork;
 exports.createFiberRoot = createFiberRoot;
 exports.createWorkInProgress = createWorkInProgress;
 exports.default = index;
 exports.reconcileSingleElement = reconcileSingleElement;
+exports.useEffect = useEffect;
+exports.useState = useState;
 //# sourceMappingURL=index.js.map
