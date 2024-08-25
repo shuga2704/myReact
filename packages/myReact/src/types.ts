@@ -1,8 +1,8 @@
 export type ReactElement = {
-    $$typeof: any;
+    // $$typeof: any;
     type: any;
     key: any;
-    ref: any;
+    // ref: any;
     props: any;
 };
 

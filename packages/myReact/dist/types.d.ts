@@ -1,8 +1,6 @@
 export type ReactElement = {
-    $$typeof: any;
     type: any;
     key: any;
-    ref: any;
     props: any;
 };
 export type ReactText = string | number;

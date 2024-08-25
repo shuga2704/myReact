@@ -163,45 +163,60 @@ function createInstance(fiber) {
     updateFiberProps(fiber);
     return domElement;
 }
-const isEvent = (key) => key.startsWith('on');
-const isProperty = (key) => key !== 'children' && !isEvent(key);
-const isNew = (prev, next) => (key) => prev[key] !== next[key];
-const isGone = (prev, next) => (key) => !(key in next);
 function updateFiberProps(fiber) {
     var _a;
-    const dom = fiber.stateNode;
+    const fiberDomNode = fiber.stateNode;
     const prevProps = ((_a = fiber.alternate) === null || _a === void 0 ? void 0 : _a.props) || {};
     const nextProps = fiber.props || {};
-    //Remove old or changed event listeners
-    Object.keys(prevProps)
-        .filter(isEvent)
-        .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
-        .forEach((name) => {
-        const eventType = name.toLowerCase().substring(2);
-        dom.removeEventListener(eventType, prevProps[name]);
-    });
-    // Remove old properties
-    Object.keys(prevProps)
-        .filter(isProperty)
-        .filter(isGone(prevProps, nextProps))
-        .forEach((name) => {
-        dom[name] = '';
-    });
-    // Set new or changed properties
-    Object.keys(nextProps)
-        .filter(isProperty)
-        .filter(isNew(prevProps, nextProps))
-        .forEach((name) => {
-        dom[name] = nextProps[name];
-    });
-    // Add event listeners
-    Object.keys(nextProps)
-        .filter(isEvent)
-        .filter(isNew(prevProps, nextProps))
-        .forEach((name) => {
-        const eventType = name.toLowerCase().substring(2);
-        dom.addEventListener(eventType, nextProps[name]);
-    });
+    // Удаляем старые атрибуты и св-ва в dom-элементе
+    for (let key in prevProps) {
+        if (key === 'children')
+            continue;
+        const prop = prevProps[key];
+        if (key.startsWith('on')) {
+            // Удаляем обработчики
+            if (!nextProps.hasOwnProperty(key) ||
+                prevProps[key] !== nextProps[key]) {
+                const eventType = key.toLowerCase().substring(2);
+                fiberDomNode.removeEventListener(eventType, prop);
+            }
+        }
+        else {
+            // Удаляем атрибуты, которых уже нет
+            if (!nextProps.hasOwnProperty(key)) {
+                if (key.startsWith('data')) {
+                    fiberDomNode.removeAttribute(key);
+                }
+                else {
+                    fiberDomNode[key] = '';
+                }
+            }
+        }
+    }
+    // Добавляем новые атрибуты и обработчики
+    for (let key in nextProps) {
+        if (key === 'children')
+            continue;
+        const prop = nextProps[key];
+        if (key.startsWith('on')) {
+            // Добавляем сначала обработчики
+            if (prevProps[key] !== nextProps[key]) {
+                const eventType = key.toLowerCase().substring(2);
+                fiberDomNode.addEventListener(eventType, prop);
+            }
+        }
+        else {
+            // И затем уже другие свойства
+            if (prevProps[key] !== prop) {
+                if (key.startsWith('data')) {
+                    fiberDomNode.setAttribute(key, prop);
+                }
+                else {
+                    fiberDomNode[key] = prop;
+                }
+            }
+        }
+    }
 }
 function performUnitOfWork(unitOfWork) {
     const current = unitOfWork.alternate;
@@ -296,10 +311,10 @@ function reconcileChildren(returnFiber, newChild) {
     // fragment nodes. Recursion happens at the normal flow.
     // Handle object types
     if (typeof newChild === 'object' && newChild !== null) {
-        if (Array.isArray(newChild) && newChild.length > 1) {
+        if (Array.isArray(newChild)) {
             return reconcileChildrenArray(returnFiber, newChild);
         }
-        reconcileSingleElement(returnFiber, newChild[0]);
+        // reconcileSingleElement(returnFiber, newChild[0]);
     }
     // // Remaining cases are all treated as empty.
     // return deleteRemainingChildren(returnFiber, currentFirstChild);
@@ -328,6 +343,12 @@ function reconcileChildrenArray(returnFiber, elementsArr) {
     let firstChild = null;
     let prevFiber = null;
     let currentAlternateFiber = ((_a = returnFiber.alternate) === null || _a === void 0 ? void 0 : _a.child) || null;
+    for (let i = 0; i < elementsArr.length; i++) {
+        const currentItem = elementsArr[i];
+        if (Array.isArray(currentItem)) {
+            elementsArr.splice(i, 1, ...currentItem);
+        }
+    }
     while (index < elementsArr.length) {
         const created = createFiberFromElement(elementsArr[index]);
         if (currentAlternateFiber &&
@@ -339,6 +360,14 @@ function reconcileChildrenArray(returnFiber, elementsArr) {
         }
         else {
             created.flags = Placement;
+            if (currentAlternateFiber) {
+                if (Array.isArray(returnFiber.deletions)) {
+                    returnFiber.deletions.push(currentAlternateFiber);
+                }
+                else {
+                    returnFiber.deletions = [currentAlternateFiber];
+                }
+            }
         }
         created.return = returnFiber;
         if (index === 0) {
@@ -354,10 +383,22 @@ function reconcileChildrenArray(returnFiber, elementsArr) {
             currentAlternateFiber = currentAlternateFiber.sibling;
         }
     }
+    // Если элементов на этом уровне больше нет, но они есть в alternate, то их нужно удалить.
+    let fiberToDelete = currentAlternateFiber;
+    while (fiberToDelete) {
+        if (Array.isArray(returnFiber.deletions)) {
+            returnFiber.deletions.push(fiberToDelete);
+        }
+        else {
+            returnFiber.deletions = [fiberToDelete];
+        }
+        fiberToDelete = fiberToDelete.sibling;
+    }
     return firstChild;
 }
 function commitRoot() {
     const finishedWork = fiberRootNode.finishedWork;
+    commitDeletions(finishedWork.child);
     commitWork(finishedWork.child);
 }
 function commitWork(fiber) {
@@ -379,6 +420,26 @@ function commitWork(fiber) {
     }
     commitWork(fiber.child);
     commitWork(fiber.sibling);
+}
+function commitDeletions(fiber) {
+    if (!fiber) {
+        return;
+    }
+    if (fiber.deletions) {
+        fiber.deletions.forEach((fiber) => {
+            let fiberToDelete = fiber;
+            while (fiberToDelete) {
+                if (fiberToDelete.stateNode) {
+                    fiberToDelete.stateNode.remove();
+                    return;
+                }
+                fiberToDelete = fiberToDelete.child;
+            }
+        });
+    }
+    fiber.deletions = null;
+    commitDeletions(fiber.child);
+    commitDeletions(fiber.sibling);
 }
 function flushPassiveEffects() {
     let fiber = fiberRootNode.finishedWork;
@@ -468,7 +529,6 @@ function useEffect(create, deps) {
 }
 var index = {
     createRoot,
-    createTextElement,
     createElement,
 };
 
