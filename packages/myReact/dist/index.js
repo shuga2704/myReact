@@ -33,15 +33,18 @@ const HookNoFlags = /*   */ 0b0000;
 // Represents whether effect should fire.
 const HookHasEffect = /* */ 0b0001;
 
-let fiberRootNode = null;
-let workInProgress = null;
-let workInProgressHookIndex = null;
+// Переменные на уровне модуля
+let fiberRootNode = null; // Самая главная файбер-нода. Создается один раз при первом рендере.
+let workInProgress = null; // Ссылка на файбер-ноду, которая находится в работе в данный момент времени.
+let workInProgressHookIndex = null; // Индекс (тип число) хуки в текущей файбер-ноде. Нужен только для функциональных компонентов.
+// Конструктор FiberRootNode. Вызывается один раз за все время.
 class FiberRootNode {
     constructor(containerInfo) {
         this.containerInfo = containerInfo;
         this.current = null;
     }
 }
+// Конструктор ReactDOMRoot. Вызывается один раз при инициализации.
 class ReactDOMRoot {
     constructor(internalRoot) {
         this._internalRoot = internalRoot;
@@ -54,10 +57,27 @@ class ReactDOMRoot {
         scheduleUpdateOnFiber();
     }
 }
-function scheduleUpdateOnFiber() {
-    queueMicrotask(performConcurrentWorkOnRoot);
+// Создаем рут при инициализации.
+function createRoot(container) {
+    const root = createFiberRoot(container);
+    return new ReactDOMRoot(root);
 }
-function performConcurrentWorkOnRoot() {
+// Создаем FiberRootNode и HostRoot
+function createFiberRoot(containerInfo) {
+    const fiberRoot = new FiberRootNode(containerInfo);
+    const uninitializedFiber = createFiber(HostRoot, null);
+    fiberRoot.current = uninitializedFiber;
+    uninitializedFiber.stateNode = containerInfo;
+    return fiberRoot;
+}
+// В реакте тут начинает работать планировщик (Scheduler).
+// Я же просто ставлю задачу на рендер приложения в микротаску.
+function scheduleUpdateOnFiber() {
+    queueMicrotask(performSyncWorkOnRoot);
+}
+// Основная функция, которая занимается рендером, коммитом, запуском эффектов и тд.
+// Есть еще performConcurrentWorkOnRoot, она работает в concurrent-режиме.
+function performSyncWorkOnRoot() {
     renderRootSync();
     const finishedWork = fiberRootNode.current.alternate;
     fiberRootNode.finishedWork = finishedWork;
@@ -67,39 +87,24 @@ function performConcurrentWorkOnRoot() {
     fiberRootNode.current = finishedWork;
     fiberRootNode.finishedWork = null;
     workInProgress = null;
-    console.log('fiberRootNode', fiberRootNode);
 }
+// Основная функция рендера. Подготавливаем дерево файберов для дальнейшей работы.
+// Запускаем синхронный цикл по проходу каждого файбера.
 function renderRootSync() {
     prepareFreshStack();
     workLoopSync();
-    // do {
-    //     try {
-    //         workLoopSync();
-    //
-    //         break;
-    //     } catch (thrownValue) {}
-    // } while (true);
 }
+// Создаем wip-дерево с только одной нодой.
 function prepareFreshStack() {
     workInProgress = createWorkInProgress(fiberRootNode.current);
 }
+// Синхронный цикл по обработке файберов.
 function workLoopSync() {
     while (workInProgress !== null) {
         performUnitOfWork(workInProgress);
     }
 }
-function createFiberRoot(containerInfo) {
-    const fiberRoot = new FiberRootNode(containerInfo);
-    const uninitializedFiber = createFiber(HostRoot, null);
-    fiberRoot.current = uninitializedFiber;
-    uninitializedFiber.stateNode = containerInfo;
-    return fiberRoot;
-}
-function createRoot(container) {
-    const root = createFiberRoot(container);
-    return new ReactDOMRoot(root);
-}
-// This is used to create an alternate fiber to do work on.
+// Создаем wip-дерево, и точнее первую ноду. Линкуем ее с alternate-нодой из current-tree.
 function createWorkInProgress(current) {
     let workInProgress = current.alternate;
     if (workInProgress === null) {
@@ -118,6 +123,7 @@ function createWorkInProgress(current) {
     workInProgress.memoizedState = current.memoizedState;
     return workInProgress;
 }
+// Утилита для создания fiber-объекта.
 function createFiber(tag, props) {
     const fiber = {
         tag,
@@ -138,6 +144,7 @@ function createFiber(tag, props) {
     };
     return fiber;
 }
+// Утилита для создания fiber-ноды из элемента.
 function createFiberFromElement(element) {
     const type = element.type;
     const props = element.props;
@@ -158,6 +165,7 @@ function createFiberFromElement(element) {
     fiber.type = resolvedType;
     return fiber;
 }
+// Утилита для создания dom-ноды.
 function createInstance(fiber) {
     const { type, props } = fiber;
     const domElement = type == 'TEXT_ELEMENT'
@@ -167,6 +175,7 @@ function createInstance(fiber) {
     updateFiberProps(fiber);
     return domElement;
 }
+// Обновляем dom-ноду.
 function updateFiberProps(fiber) {
     var _a;
     const fiberDomNode = fiber.stateNode;
@@ -222,6 +231,8 @@ function updateFiberProps(fiber) {
         }
     }
 }
+// UnitOfWork === fiber. 1 вызов performUnitOfWork - обработка 1 fiber-ноды.
+// Здесь проделываем все работу над файбером.
 function performUnitOfWork(unitOfWork) {
     const current = unitOfWork.alternate;
     let next;
@@ -233,6 +244,8 @@ function performUnitOfWork(unitOfWork) {
         workInProgress = next;
     }
 }
+// Функция-маршрутизатор. Вызывает соответствующий update.
+// Тут идет работа над созданием новых файбер-нод, сверке children, обновлению пропсов и тд.
 function beginWork(current, workInProgress) {
     switch (workInProgress.tag) {
         case HostRoot:
@@ -245,29 +258,24 @@ function beginWork(current, workInProgress) {
             return updateHostText();
     }
 }
+// Заключительная функция в рамках performUnitOfWork.
+// Здесь создаются dom-ноды.
 function completeUnitOfWork(unitOfWork) {
-    // Attempt to complete the current unit of work, then move to the next
-    // sibling. If there are no more siblings, return to the parent fiber.
     let completedWork = unitOfWork;
     do {
-        // The current, flushed, state of this fiber is the alternate. Ideally
-        // nothing should rely on this, but relying on it here means that we don't
-        // need an additional field on the work in progress.
-        completedWork.alternate;
         const returnFiber = completedWork.return;
-        // debugger;
         completeWork(completedWork);
         const siblingFiber = completedWork.sibling;
         if (siblingFiber !== null) {
-            // If there is more work to do in this returnFiber, do that next.
+            // Если у текущей ноды есть сосед (sibling), то мы выходим из completeUnitOfWork и запускаем beginWork у этой sibling-ноды.
             workInProgress = siblingFiber;
             return;
         }
         completedWork = returnFiber;
-        // Update the next thing we're working on in case something throws.
         workInProgress = completedWork;
     } while (completedWork !== null);
 }
+// Дочерняя функция-маршрутизатор из completeUnitOfWork.
 function completeWork(workInProgress) {
     if (workInProgress.flags === Placement) {
         switch (workInProgress.tag) {
@@ -283,14 +291,17 @@ function completeWork(workInProgress) {
     }
     return null;
 }
+// Вызывается в рамках beginWork.
 function updateHostRoot(current, workInProgress) {
     const nextChildren = workInProgress.props.children;
     reconcileChildren(workInProgress, nextChildren);
     return workInProgress.child;
 }
+// Вызывается в рамках beginWork.
 function updateFunctionalComponent(current, workInProgress) {
     workInProgress.memoizedState = (current === null || current === void 0 ? void 0 : current.memoizedState) || null;
     workInProgressHookIndex = 0;
+    // Тут получаем результат вызова функциональной компоненты.
     const funcResult = workInProgress.type(workInProgress.props);
     workInProgressHookIndex = 0;
     workInProgress.props.children = funcResult;
@@ -298,6 +309,7 @@ function updateFunctionalComponent(current, workInProgress) {
     reconcileChildren(workInProgress, nextChildren);
     return workInProgress.child;
 }
+// Вызывается в рамках beginWork.
 function updateHostComponent(current, workInProgress) {
     const nextChildren = workInProgress.props.children;
     if (nextChildren.length === 0)
@@ -305,48 +317,26 @@ function updateHostComponent(current, workInProgress) {
     reconcileChildren(workInProgress, nextChildren);
     return workInProgress.child;
 }
+// Вызывается в рамках beginWork.
 function updateHostText() {
     return null;
 }
+// Сверка children.
 function reconcileChildren(returnFiber, newChild) {
-    // This function is not recursive.
-    // If the top level item is an array, we treat it as a set of children,
-    // not as a fragment. Nested arrays on the other hand will be treated as
-    // fragment nodes. Recursion happens at the normal flow.
-    // Handle object types
     if (typeof newChild === 'object' && newChild !== null) {
         if (Array.isArray(newChild)) {
             return reconcileChildrenArray(returnFiber, newChild);
         }
-        // reconcileSingleElement(returnFiber, newChild[0]);
     }
-    // // Remaining cases are all treated as empty.
-    // return deleteRemainingChildren(returnFiber, currentFirstChild);
 }
-function reconcileSingleElement(returnFiber, element) {
-    var _a, _b;
-    const created = createFiberFromElement(element);
-    // Проверяем одинаков ли тип у файберов
-    if (((_a = returnFiber.alternate) === null || _a === void 0 ? void 0 : _a.child) &&
-        ((_b = returnFiber.alternate) === null || _b === void 0 ? void 0 : _b.child.type) === created.type) {
-        created.alternate = returnFiber.alternate.child;
-        returnFiber.alternate.child.alternate = created;
-        created.flags = Update;
-        created.stateNode = returnFiber.alternate.child.stateNode;
-    }
-    else {
-        created.flags = Placement;
-    }
-    created.return = returnFiber;
-    returnFiber.child = created;
-    return created;
-}
+// Запускается процесс reconciliation. Проверяем дочерние файбер-ноды и их порядок.
 function reconcileChildrenArray(returnFiber, elementsArr) {
     var _a;
     let index = 0;
     let firstChild = null;
     let prevFiber = null;
     let currentAlternateFiber = ((_a = returnFiber.alternate) === null || _a === void 0 ? void 0 : _a.child) || null;
+    // Edge-case, когда вместо jsx-элементов мы маппим массив элементов.
     for (let i = 0; i < elementsArr.length; i++) {
         const currentItem = elementsArr[i];
         if (Array.isArray(currentItem)) {
@@ -400,11 +390,13 @@ function reconcileChildrenArray(returnFiber, elementsArr) {
     }
     return firstChild;
 }
+// Наступает фаза коммита. Сначала удаляются dom-ноды. Затем обновляются/добавляются dom-ноды.
 function commitRoot() {
     const finishedWork = fiberRootNode.finishedWork;
     commitDeletions(finishedWork.child);
     commitWork(finishedWork.child);
 }
+// Дочерняя функция из commitRoot. Проходим fiber-дерево снова и применяем изменения в dom.
 function commitWork(fiber) {
     if (!fiber) {
         return;
@@ -425,6 +417,7 @@ function commitWork(fiber) {
     commitWork(fiber.child);
     commitWork(fiber.sibling);
 }
+// Удаляем dom-ноды, требующие удаления.
 function commitDeletions(fiber) {
     if (!fiber) {
         return;
@@ -445,6 +438,7 @@ function commitDeletions(fiber) {
     commitDeletions(fiber.child);
     commitDeletions(fiber.sibling);
 }
+// Запускаем коллбэки из useEffect.
 function flushPassiveEffects() {
     let fiber = fiberRootNode.finishedWork;
     let cameFromReturn = false;
@@ -470,6 +464,7 @@ function flushPassiveEffects() {
         fiber = fiber.return;
     }
 }
+// Хук useState.
 function useState(initialValue) {
     if (workInProgress.memoizedState === null) {
         workInProgress.memoizedState = [];
@@ -500,6 +495,7 @@ function useState(initialValue) {
     workInProgressHookIndex++;
     return [currentHook.state, dispatcher];
 }
+// Хук useEffect.
 function useEffect(create, deps) {
     if (workInProgress.memoizedState === null) {
         workInProgress.memoizedState = [];
@@ -540,7 +536,6 @@ exports.completeWork = completeWork;
 exports.createFiberRoot = createFiberRoot;
 exports.createWorkInProgress = createWorkInProgress;
 exports.default = index;
-exports.reconcileSingleElement = reconcileSingleElement;
 exports.useEffect = useEffect;
 exports.useState = useState;
 //# sourceMappingURL=index.js.map

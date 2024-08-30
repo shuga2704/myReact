@@ -21,9 +21,9 @@ import {
 } from './types';
 
 // Переменные на уровне модуля
-let fiberRootNode: FiberRoot | null = null;
-let workInProgress: any = null;
-let workInProgressHookIndex: any = null;
+let fiberRootNode: FiberRoot | null = null; // Самая главная файбер-нода. Создается один раз при первом рендере.
+let workInProgress: any = null; // Ссылка на файбер-ноду, которая находится в работе в данный момент времени.
+let workInProgressHookIndex: any = null; // Индекс (тип число) хуки в текущей файбер-ноде. Нужен только для функциональных компонентов.
 
 // Конструктор FiberRootNode. Вызывается один раз за все время.
 class FiberRootNode {
@@ -69,7 +69,6 @@ export function createFiberRoot(
     containerInfo: Element | HTMLElement | Document | DocumentFragment,
 ) {
     const fiberRoot = new FiberRootNode(containerInfo);
-
     const uninitializedFiber = createFiber(HostRoot, null);
 
     fiberRoot.current = uninitializedFiber;
@@ -317,15 +316,9 @@ function beginWork(
 // Заключительная функция в рамках performUnitOfWork.
 // Здесь создаются dom-ноды.
 function completeUnitOfWork(unitOfWork: Fiber): void {
-    // Attempt to complete the current unit of work, then move to the next
-    // sibling. If there are no more siblings, return to the parent fiber.
     let completedWork: Fiber = unitOfWork;
 
     do {
-        // The current, flushed, state of this fiber is the alternate. Ideally
-        // nothing should rely on this, but relying on it here means that we don't
-        // need an additional field on the work in progress.
-        const current = completedWork.alternate;
         const returnFiber = completedWork.return;
 
         completeWork(completedWork);
@@ -333,7 +326,7 @@ function completeUnitOfWork(unitOfWork: Fiber): void {
         const siblingFiber = completedWork.sibling;
 
         if (siblingFiber !== null) {
-            // If there is more work to do in this returnFiber, do that next.
+            // Если у текущей ноды есть сосед (sibling), то мы выходим из completeUnitOfWork и запускаем beginWork у этой sibling-ноды.
             workInProgress = siblingFiber;
 
             return;
@@ -341,7 +334,6 @@ function completeUnitOfWork(unitOfWork: Fiber): void {
 
         completedWork = returnFiber as any;
 
-        // Update the next thing we're working on in case something throws.
         workInProgress = completedWork;
     } while (completedWork !== null);
 }
@@ -382,6 +374,7 @@ function updateFunctionalComponent(
 
     workInProgressHookIndex = 0;
 
+    // Тут получаем результат вызова функциональной компоненты.
     const funcResult = workInProgress.type(workInProgress.props);
 
     workInProgressHookIndex = 0;
@@ -416,22 +409,11 @@ function reconcileChildren(
     returnFiber: Fiber,
     newChild: any,
 ): Fiber | null | any {
-    // This function is not recursive.
-    // If the top level item is an array, we treat it as a set of children,
-    // not as a fragment. Nested arrays on the other hand will be treated as
-    // fragment nodes. Recursion happens at the normal flow.
-
-    // Handle object types
     if (typeof newChild === 'object' && newChild !== null) {
         if (Array.isArray(newChild)) {
             return reconcileChildrenArray(returnFiber, newChild);
         }
-
-        // reconcileSingleElement(returnFiber, newChild[0]);
     }
-
-    // // Remaining cases are all treated as empty.
-    // return deleteRemainingChildren(returnFiber, currentFirstChild);
 }
 
 // Запускается процесс reconciliation. Проверяем дочерние файбер-ноды и их порядок.
@@ -442,6 +424,7 @@ function reconcileChildrenArray(returnFiber: Fiber, elementsArr: any) {
     let currentAlternateFiber: Fiber | null =
         returnFiber.alternate?.child || null;
 
+    // Edge-case, когда вместо jsx-элементов мы маппим массив элементов.
     for (let i = 0; i < elementsArr.length; i++) {
         const currentItem = elementsArr[i];
 
